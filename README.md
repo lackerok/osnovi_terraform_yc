@@ -1,6 +1,7 @@
 # Задание 1
 <img width="1800" height="142" alt="image" src="https://github.com/user-attachments/assets/b834cb33-2c4f-4619-9e6e-38037ea8a4f8" />
 <img width="779" height="70" alt="image" src="https://github.com/user-attachments/assets/ee9788e3-2e07-4672-86c6-533565ea82be" />
+
 суть синтаксических ошибок в коде:
 1) в "platform_id = "standart-v4" была ошибка: t вместо d. а также было указано количество ядер, равное 1, однако на деле необходимо значение cores=2.
 2) preemptible = true - прерываемая ВМ, останавливается через 24 часа, сильно экономит деньги. core_fraction = 5 - допустимая доля процессорного времени (5%) - максимально снижает затраты на аренду вычислительных ресурсов
