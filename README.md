@@ -23,3 +23,299 @@
 
 # Задание 6
 <img width="1485" height="357" alt="image" src="https://github.com/user-attachments/assets/b944f390-eaf0-4d9e-96ec-f341d35582e9" />
+
+
+# код
+
+main.tf: 
+```
+resource "yandex_vpc_network" "develop" {
+  name = var.vpc_name
+}
+resource "yandex_vpc_subnet" "develop" {
+  name           = var.vpc_name
+  zone           = var.default_zone
+  network_id     = yandex_vpc_network.develop.id
+  v4_cidr_blocks = var.default_cidr
+}
+
+
+data "yandex_compute_image" "ubuntu" {
+  family = var.vm_web_image_family
+}
+
+resource "yandex_compute_instance" "platform" {
+  name        = local.vm_web_name
+  platform_id = var.vm_web_platform_id
+
+  resources {
+    cores         = var.vms_resources.web.cores
+    memory        = var.vms_resources.web.memory
+    core_fraction = var.vms_resources.web.core_fraction
+  }
+
+  boot_disk {
+    initialize_params {
+      image_id = data.yandex_compute_image.ubuntu.image_id
+    }
+  }
+
+  scheduling_policy {
+    preemptible = true
+  }
+
+  network_interface {
+    subnet_id = yandex_vpc_subnet.develop.id
+    nat       = true
+  }
+
+metadata = {
+    serial-port-enable = var.metadata.serial-port-enable
+    ssh-keys           = "ubuntu:${var.vms_ssh_root_key}"
+  }
+}
+
+### Subnet for Zone B
+resource "yandex_vpc_subnet" "develop_b" {
+  name           = "${var.vpc_name}-b"
+  zone           = var.vm_db_zone
+  network_id     = yandex_vpc_network.develop.id
+  v4_cidr_blocks = var.vm_db_cidr
+}
+
+### DB VM
+resource "yandex_compute_instance" "platform_db" {
+  name        = local.vm_db_name
+  platform_id = var.vm_db_platform_id
+  zone        = var.vm_db_zone
+
+  resources {
+    cores         = var.vms_resources.db.cores
+    memory        = var.vms_resources.db.memory
+    core_fraction = var.vms_resources.db.core_fraction
+  }
+
+  boot_disk {
+    initialize_params {
+      image_id = data.yandex_compute_image.ubuntu.image_id
+    }
+  }
+
+  scheduling_policy {
+    preemptible = true
+  }
+
+  network_interface {
+    subnet_id = yandex_vpc_subnet.develop_b.id
+    nat       = true
+  }
+
+  metadata = {
+    serial-port-enable = var.metadata.serial-port-enable
+    ssh-keys           = "ubuntu:${var.vms_ssh_root_key}"
+  }
+}
+```
+
+variables.tf:
+
+```
+###cloud vars
+
+
+variable "cloud_id" {
+  type        = string
+  description = "https://cloud.yandex.ru/docs/resource-manager/operations/cloud/get-id"
+}
+
+variable "folder_id" {
+  type        = string
+  description = "https://cloud.yandex.ru/docs/resource-manager/operations/folder/get-id"
+}
+
+variable "default_zone" {
+  type        = string
+  default     = "ru-central1-a"
+  description = "https://cloud.yandex.ru/docs/overview/concepts/geo-scope"
+}
+variable "default_cidr" {
+  type        = list(string)
+  default     = ["10.0.1.0/24"]
+  description = "https://cloud.yandex.ru/docs/vpc/operations/subnet-create"
+}
+
+variable "vpc_name" {
+  type        = string
+  default     = "develop"
+  description = "VPC network & subnet name"
+}
+
+
+###ssh vars
+
+variable "vms_ssh_root_key" {
+  type        = string
+  default     = "<your_ssh_ed25519_key>"
+  description = "ssh-keygen -t ed25519"
+}
+```
+
+vms_platform.tf:
+
+```
+### Variables for Web VM
+
+variable "vm_web_image_family" {
+  type        = string
+  default     = "ubuntu-2004-lts"
+  description = "Image family for Ubuntu compute image"
+}
+
+#variable "vm_web_name" {
+#  type        = string
+#  default     = "netology-develop-platform-web"
+#  description = "Name of the web compute instance"
+#}
+
+variable "vm_web_platform_id" {
+  type        = string
+  default     = "standard-v1"
+  description = "Hardware platform ID for the web instance"
+}
+
+#variable "vm_web_cores" {
+#  type        = number
+#  default     = 2
+#  description = "Number of CPU cores for web VM"
+#}
+
+#variable "vm_web_memory" {
+#  type        = number
+#  default     = 1
+#  description = "RAM size in GB for web VM"
+#}
+
+#variable "vm_web_core_fraction" {
+#  type        = number
+#  default     = 5
+#  description = "Baseline CPU performance in percent for web VM"
+#}
+
+
+### Variables for DB VM
+
+variable "vm_db_image_family" {
+  type        = string
+  default     = "ubuntu-2004-lts"
+  description = "Image family for DB Ubuntu compute image"
+}
+
+#variable "vm_db_name" {
+#  type        = string
+#  default     = "netology-develop-platform-db"
+#  description = "Name of the DB compute instance"
+#}
+
+variable "vm_db_platform_id" {
+  type        = string
+  default     = "standard-v1"
+  description = "Hardware platform ID for the DB instance"
+}
+
+#variable "vm_db_cores" {
+#  type        = number
+#  default     = 2
+#  description = "Number of CPU cores for DB VM"
+#}
+
+#variable "vm_db_memory" {
+#  type        = number
+#  default     = 2
+#  description = "RAM size in GB for DB VM"
+#}
+
+#variable "vm_db_core_fraction" {
+#  type        = number
+#  default     = 20
+#  description = "Baseline CPU performance in percent for DB VM"
+#}
+
+variable "vm_db_zone" {
+  type        = string
+  default     = "ru-central1-b"
+  description = "Availability zone for DB VM"
+}
+
+variable "vm_db_cidr" {
+  type        = list(string)
+  default     = ["10.0.2.0/24"]
+  description = "Subnet CIDR for DB zone-b"
+}
+
+
+### Unified resource map for all VMs
+
+variable "vms_resources" {
+  type = map(object({
+    cores         = number
+    memory        = number
+    core_fraction = number
+  }))
+  default = {
+    web = {
+      cores         = 2
+      memory        = 1
+      core_fraction = 5
+    }
+    db = {
+      cores         = 2
+      memory        = 2
+      core_fraction = 20
+    }
+  }
+  description = "Hardware resource profiles for all VMs"
+}
+
+### Unified metadata for all VMs
+
+variable "metadata" {
+  type = map(string)
+  default = {
+    serial-port-enable = "1"
+  }
+  description = "Common metadata configuration for all VMs"
+}
+```
+
+locals.tf:
+
+```
+locals {
+  project  = "netology"
+  env      = "develop"
+  platform = "platform"
+
+  vm_web_name = "${local.project}-${local.env}-${local.platform}-web"
+  vm_db_name  = "${local.project}-${local.env}-${local.platform}-db"
+}
+```
+
+outputs.tf:
+
+```
+output "vms_info" {
+  description = "Information about created instances"
+  value = {
+    web = {
+      instance_name = yandex_compute_instance.platform.name
+      external_ip   = yandex_compute_instance.platform.network_interface[0].nat_ip_address
+      fqdn          = yandex_compute_instance.platform.fqdn
+    }
+    db = {
+      instance_name = yandex_compute_instance.platform_db.name
+      external_ip   = yandex_compute_instance.platform_db.network_interface[0].nat_ip_address
+      fqdn          = yandex_compute_instance.platform_db.fqdn
+    }
+  }
+}
+```
